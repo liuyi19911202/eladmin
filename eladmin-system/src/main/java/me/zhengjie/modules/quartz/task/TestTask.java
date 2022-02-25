@@ -15,12 +15,22 @@
  */
 package me.zhengjie.modules.quartz.task;
 
+import com.alibaba.fastjson.JSON;
+import com.cdos.web.htppclient.CdosHttpRestTemplate;
 import lombok.extern.slf4j.Slf4j;
+import me.zhengjie.modules.doum.repository.UserMonitorRepository;
+import me.zhengjie.modules.doum.service.dto.UserMonitorDto;
+import me.zhengjie.utils.SecurityUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * 测试用
+ *
  * @author Zheng Jie
  * @date 2019-01-08
  */
@@ -28,16 +38,57 @@ import org.springframework.stereotype.Component;
 @Async
 @Component
 public class TestTask {
+    @Autowired
+    CdosHttpRestTemplate awemeHttpRestTemplate;
+    @Autowired
+    UserMonitorRepository userMonitorRepository;
 
-    public void run(){
+    public void run() {
         log.info("run 执行成功");
     }
 
-    public void run1(String str){
+    public void run1(String str) {
         log.info("run1 执行成功，参数为： {}" + str);
     }
 
-    public void run2(){
+    public void run2() {
         log.info("run2 执行成功");
+    }
+
+    /**
+     * 爬虫任务
+     */
+    public void runAweme(String sec_user_id) {
+        ResponseEntity<String> entity = awemeHttpRestTemplate.getDelegate()
+            .getForEntity("http://localhost:8868/getAwemeListBySecUserId?sec_user_id=" + sec_user_id + "&current_user"
+                + SecurityUtils.getCurrentUserId(), String.class);
+        log.info("runAweme 执行完毕 response : {}", JSON.toJSONString(entity));
+    }
+
+    /**
+     * 爬虫任务 -- 批量
+     */
+    public void batchRunAweme() {
+        List<UserMonitorDto> userMonitorDtos = userMonitorRepository.listForPage(null, null, 200, UserMonitorDto.class);
+        log.info("批量爬虫任务，当前size:{}", userMonitorDtos.size());
+
+        for (int i = 0; i < userMonitorDtos.size(); i++) {
+
+            log.info("当前执行到第{}/{}个用户，uid：{}，sec_user_id：{}", userMonitorDtos.size(), i, userMonitorDtos.get(i)
+                .getUid(), userMonitorDtos.get(i)
+                .getSec_user_id());
+            try {
+                ResponseEntity<String> entity = awemeHttpRestTemplate.getDelegate()
+                    .getForEntity("http://localhost:8868/getAwemeListBySecUserId?sec_user_id=" + userMonitorDtos.get(i)
+                        .getSec_user_id() + "&current_user=" + userMonitorDtos.get(i)
+                        .getCurrentUser(), String.class);
+
+                log.info("runAweme 执行完毕 response : {}", JSON.toJSONString(entity));
+            } catch (Exception e) {
+                log.info("当前执行到第{}/{}个用户，uid：{}，sec_user_id：{}", userMonitorDtos.size(), i, userMonitorDtos.get(i)
+                    .getUid(), userMonitorDtos.get(i)
+                    .getSec_user_id());
+            }
+        }
     }
 }

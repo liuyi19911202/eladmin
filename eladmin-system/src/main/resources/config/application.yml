@@ -13,6 +13,10 @@ spring:
       repositories:
         enabled: false
 
+    elasticsearch:
+      cluster-name: my-application
+      cluster-nodes: localhost:9300
+
   #配置 Jpa
   jpa:
     hibernate:
@@ -25,7 +29,7 @@ spring:
   redis:
     #数据库索引
     database: ${REDIS_DB:0}
-    host: ${REDIS_HOST:127.0.0.1}
+    host: ${REDIS_HOST:localhost}
     port: ${REDIS_PORT:6379}
     password: ${REDIS_PWD:}
     #连接超时时间
