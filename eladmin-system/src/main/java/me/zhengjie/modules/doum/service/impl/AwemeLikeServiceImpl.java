@@ -308,7 +308,7 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                             if (productGroup.containsKey(awemeExtraDto.getProduct_id())) {
                                 List<AwemeExtraDto> awemeExtraDtos = productGroup.get(awemeExtraDto.getProduct_id());
 
-                                // 最大
+                                // 最大1
                                 Integer minSales = awemeExtraDtos.parallelStream()
                                     .min(Comparator.comparing(AwemeExtraDto::getSales))
                                     .map(AwemeExtraDto::getSales)
