@@ -4,10 +4,17 @@ import cn.hutool.http.HttpUtil;
 import com.alibaba.fastjson.JSON;
 import com.cdos.api.bean.PageInfo;
 import com.cdos.api.bean.cdosapi.CdosApiPageResponse;
+import com.cdos.utils.DateUtil;
+import com.cdos.utils.json.JacksonProvider;
 import com.cdos.web.htppclient.CdosHttpRestTemplate;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import me.zhengjie.modules.doum.repository.UserMonitorRepository;
+import me.zhengjie.modules.doum.repository.dto.user.DataDto;
+import me.zhengjie.modules.doum.repository.dto.user.UserInfoDto;
 import me.zhengjie.modules.doum.service.UserMonitorService;
 import me.zhengjie.modules.doum.service.dto.UserMonitorDto;
 import me.zhengjie.modules.doum.service.dto.UserMonitorQueryCriteria;
@@ -20,10 +27,14 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -55,6 +66,60 @@ public class UserMonitorServiceImpl implements UserMonitorService {
     public Object add(UserMonitorDto dto) {
         userMonitorRepository.insert(dto);
         return Boolean.TRUE;
+    }
+
+    @Override
+    @SneakyThrows
+    public Object getUser1(UserMonitorQueryCriteria criteria) {
+        String[] split = criteria.getHome_url()
+            .split("\n");
+        for (String i : split) {
+
+            String home_url = i.substring(i.indexOf("https"));
+            String s = HttpUtil.get(home_url);
+            int start = s.indexOf("user");
+            int end = s.indexOf("?");
+            String substring = s.substring(start, end);
+            // 用户的sec_user_id信息
+            String sec_user_id = substring.substring(5);
+
+            Map<String, String> params = Maps.newHashMapWithExpectedSize(3);
+            params.put("sec_uid", sec_user_id);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+            headers.setAccept(Lists.newArrayList(MediaType.APPLICATION_JSON_UTF8));
+            headers.set("token", "test");
+            String jsonParam = JacksonProvider.getObjectMapper()
+                .writeValueAsString(Objects.nonNull(params) ? params : "");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(jsonParam, headers);
+
+            String userStr = userHttpRestTemplate.getDelegate()
+                .postForObject("http://121.36.95.244:9822/api/aweme/userInfo", requestEntity, String.class);
+
+            // 格式化
+            UserInfoDto userInfoDto = JSON.parseObject(userStr, UserInfoDto.class);
+            if (Objects.nonNull(userInfoDto)) {
+                DataDto data = userInfoDto.getData();
+
+                userMonitorRepository.insert(UserMonitorDto.builder()
+                    // TODO: 2022/3/1 当前登录用户
+                    .user_id(null)
+                    .home_url(home_url)
+                    .sec_user_id(sec_user_id)
+                    .nickname(data.getNickname())
+                    .uid(data.getUid())
+                    .unique_id(data.getUnique_id())
+                    .aweme_count(data.getAweme_count())
+                    .follower_count(data.getFollower_count())
+                    .avatar_medium(data.getAvatar_medium()
+                        .getUrl_list())
+                    .create_time(DateUtil.getCurrentDateTime())
+                    .build());
+            }
+        }
+        return null;
     }
 
     @Override

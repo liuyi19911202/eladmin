@@ -15,4 +15,6 @@ public interface UserMonitorService {
     Object delete(Set<String> ids);
 
     Object getUser(UserMonitorQueryCriteria criteria);
+
+    Object getUser1(UserMonitorQueryCriteria criteria);
 }

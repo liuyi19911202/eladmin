@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.Date;
@@ -24,7 +25,7 @@ public class UserMonitorDto {
     /**
      * 当前登录用户
      */
-    private String currentUser;
+    private String user_id;
     /**
      * 主页链接
      * <p>
@@ -42,7 +43,8 @@ public class UserMonitorDto {
     /**
      * uid
      */
-    private String uid;
+    @Id
+    private Long uid;
     /**
      * 抖音号
      */
@@ -50,7 +52,7 @@ public class UserMonitorDto {
     /**
      * 作品数
      */
-    private Integer aweme_count;
+    private Long aweme_count;
     /**
      * 粉丝数
      */

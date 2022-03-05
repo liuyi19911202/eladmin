@@ -38,4 +38,12 @@ public class UserMonitorRepository extends BaseElasticSearchRepository<UserMonit
         Class clazz) {
         return super.listForPage(index, doc, boolQueryBuilder, sortBuilder, n, clazz);
     }
+
+    public void insert(String id, List<UserMonitorDto> list) {
+        super.insert(index, doc, id, list);
+    }
+
+    public void insert(List<UserMonitorDto> list) {
+        super.insert(index, doc, list);
+    }
 }

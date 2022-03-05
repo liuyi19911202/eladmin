@@ -46,7 +46,8 @@ public class UserMonitorController {
 
     @ApiOperation("查询用户监控列表")
     @GetMapping
-    @PreAuthorize("@el.check('doum:user:list')")
+    @AnonymousAccess
+//    @PreAuthorize("@el.check('doum:user:list')")
     public ResponseEntity<Object> queryUser(UserMonitorQueryCriteria criteria, Pageable pageable) {
 
         return new ResponseEntity<>(userMonitorService.list(criteria, pageable), HttpStatus.OK);
@@ -54,10 +55,10 @@ public class UserMonitorController {
 
     @Log("爬虫用户信息")
     @ApiOperation("爬虫用户信息")
-    @GetMapping("/getUser")
+    @PostMapping("/getUser")
     @AnonymousAccess
     public ResponseEntity<Object> getUser(UserMonitorQueryCriteria criteria) {
-        userMonitorService.getUser(criteria);
+        userMonitorService.getUser1(criteria);
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 

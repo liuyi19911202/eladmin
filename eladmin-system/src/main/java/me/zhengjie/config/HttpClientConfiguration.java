@@ -18,11 +18,11 @@ public class HttpClientConfiguration {
     public CdosHttpRestTemplate awemeHttpRestTemplate() {
 
         final HttpClientPoolProperties poolProperties = HttpClientPoolProperties.builder()
-            .maxTotal(5)
-            .connectionRequestTimeout(1000)
-            .connectTimeout(1000)
+            .maxTotal(16)
+            .connectionRequestTimeout(10000)
+            .connectTimeout(101000)
             .defaultMaxPerRoute(100)
-            .socketTimeout(30000)
+            .socketTimeout(300000)
             .build();
 
         final CloseableHttpClient httpClient = new CdosHttpRestBuilder().poolProperties(poolProperties)

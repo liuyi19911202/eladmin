@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 
@@ -17,12 +18,13 @@ import java.util.List;
  * @date 2022/2/22
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-@Document(indexName = "dm_aweme", type = "_doc")
 @Data
+@Document(indexName = "dm_aweme_result_*", type = "_doc")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AwemeDto {
+public class AwemeResultDto {
+    @Id
     private Long aweme_id;
     private String desc;
     /**
@@ -47,7 +49,8 @@ public class AwemeDto {
 
     // ----------------商品信息------------
 
-    private Boolean with_goods;
+    @Builder.Default
+    private Boolean with_goods = false;
     private String[] product_url_list;
     private List<AwemeExtraDto> extra;
 
@@ -56,18 +59,15 @@ public class AwemeDto {
     /**
      * 冗余前端返回，点赞差
      */
-    @Transient
     private long diff;
-    /**
-     * 销量增长
-     */
-    @Transient
-    private Integer sales_diff;
     /**
      * 冗余一下 多个商品
      */
     private List<SalesDiffDto> salesDiff;
-
+    /**
+     * 销量增长
+     */
+    private Integer sales_diff;
     @Transient
-    private List<AwemeDto> detailfList;
+    private List<AwemeResultDto> detailfList;
 }
