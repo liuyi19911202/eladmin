@@ -15,4 +15,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class StatusDto {
     private Boolean with_goods;
+    private Boolean is_delete;
 }

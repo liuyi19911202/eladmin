@@ -1,20 +1,38 @@
 package me.zhengjie.modules.doum.repository;
 
+import com.alibaba.fastjson.JSON;
 import com.cdos.api.bean.PageInfo;
 import com.cdos.api.bean.cdosapi.CdosApiPageResponse;
 import com.cdos.es.estemplate.repository.BaseElasticSearchRepository;
 import com.cdos.utils.DateUtil;
+import com.cdos.utils.Safes;
 import lombok.extern.log4j.Log4j2;
 import me.zhengjie.domain.Log;
 import me.zhengjie.modules.doum.enums.DateBetweenEnum;
 import me.zhengjie.modules.doum.service.dto.AwemeDto;
 import org.apache.commons.lang3.tuple.Pair;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.AbstractQueryBuilder;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
+import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ResultsExtractor;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * @author liuyi
@@ -23,13 +41,16 @@ import java.util.List;
 @Log4j2
 @Component
 public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
-    private String date = DateUtil.formatDate(DateUtil.getCurrentDate());
-    private String index = "dm_aweme" + "_" + date;
+    private String index = "dm_aweme";
     private String doc = "_doc";
+
+    @Autowired
+    private ElasticsearchTemplate elasticsearchTemplate;
 
     public CdosApiPageResponse<AwemeDto> listForPage(PageInfo page, AbstractQueryBuilder boolQueryBuilder,
         SortBuilder sortBuilder, Class clazz) {
-        return super.listForPage(index, doc, page, boolQueryBuilder, sortBuilder, clazz);
+        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()), doc, page,
+            boolQueryBuilder, sortBuilder, clazz);
     }
 
     public List<AwemeDto> listForPage(String from, AbstractQueryBuilder boolQueryBuilder, SortBuilder sortBuilder,
@@ -37,9 +58,73 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
         return super.listForPage(getIndex(from), doc, boolQueryBuilder, sortBuilder, n, clazz);
     }
 
-    public List<Pair<String, List<Pair<String, Long>>>> aggregationLongFieldTopN(Integer n,
-        AbstractQueryBuilder boolQueryBuilder, SortBuilder sortBuilder, String... field) {
-        return super.aggregationLongFieldTopN(index, doc, n, boolQueryBuilder, sortBuilder, field);
+    public List<AwemeDto> aggrList(String from, AbstractQueryBuilder boolQueryBuilder, Integer size,
+        SortOrder sortOrder) {
+        FieldSortBuilder update_time = new FieldSortBuilder("update_time").order(sortOrder);
+
+        Aggregations aggregations =
+            getAggregations(getIndex(from), doc, size, boolQueryBuilder, update_time, "aweme_id", "update_time",
+                sortOrder);
+        Terms longTerms = aggregations.get("aweme_idGroup");
+        List<? extends Terms.Bucket> buckets = longTerms.getBuckets();
+
+        List<AwemeDto> update_timeTop = Safes.of(buckets)
+            .parallelStream()
+            .flatMap(map -> {
+
+                // 内层循环
+                InternalTopHits internalTopHits = map.getAggregations()
+                    .get("update_timeTop");
+
+                SearchHit[] hits = internalTopHits.getHits()
+                    .getHits();
+
+                List<AwemeDto> collect = Arrays.stream(hits)
+                    .map(m -> JSON.parseObject(m.getSourceAsString(), AwemeDto.class))
+                    .collect(Collectors.toList());
+
+                return collect.stream();
+            })
+            .collect(Collectors.toList());
+
+        return update_timeTop;
+    }
+
+    private Aggregations getAggregations(String[] index, String type, Integer n, AbstractQueryBuilder boolQueryBuilder,
+        SortBuilder sortBuilder, String group, String order, SortOrder sortOrder) {
+
+        log.info("boolQueryBuilder = {} ", boolQueryBuilder);
+
+        TermsAggregationBuilder termsAggregationBuilder = AggregationBuilders.terms(group + "Group")
+            .field(group)
+            .size(n);
+
+        // 这样肯定是1，因为倒叙、正序只取第一位
+        termsAggregationBuilder.subAggregation(AggregationBuilders.topHits(order + "Top")
+            .sort("update_time", sortOrder)
+            .size(1));
+
+        NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withIndices(index)
+            .withTypes(type)
+            .addAggregation(termsAggregationBuilder);
+
+        if (Objects.nonNull(boolQueryBuilder)) {
+            nativeSearchQueryBuilder.withQuery(boolQueryBuilder);
+        }
+
+        // 判断是否加上排序
+        if (Objects.nonNull(sortBuilder)) {
+            nativeSearchQueryBuilder.withSort(sortBuilder);
+        }
+
+        Aggregations aggregations =
+            elasticsearchTemplate.query(nativeSearchQueryBuilder.build(), new ResultsExtractor<Aggregations>() {
+                @Override
+                public Aggregations extract(SearchResponse searchResponse) {
+                    return searchResponse.getAggregations();
+                }
+            });
+        return aggregations;
     }
 
     public void insert(List<AwemeDto> list, String index) {

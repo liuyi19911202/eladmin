@@ -171,7 +171,7 @@ public class TestTask {
                 HttpEntity<String> requestEntity = new HttpEntity<>(jsonParam, headers);
 
                 String s = awemeHttpRestTemplate.getDelegate()
-                    .postForObject("http://121.36.95.244:9822/api/aweme/userVideoList", requestEntity, String.class);
+                    .postForObject("http://127.0.0.1:9822/api/aweme/userVideoList", requestEntity, String.class);
 
                 // 格式化
                 AwemeDto awemeDto = JSON.parseObject(s, AwemeDto.class);
@@ -202,7 +202,9 @@ public class TestTask {
                                         .nickname(map1.getAuthor()
                                             .getNickname())
                                         .unique_id(map1.getAuthor()
-                                            .getUnique_id());
+                                            .getUnique_id())
+                                        .is_delete(map1.getStatus()
+                                            .getIs_delete());
                                 // TODO: 2022/3/2
                                 //.user_id(SecurityUtils.getCurrentUserId())
 
@@ -255,8 +257,7 @@ public class TestTask {
         AtomicInteger atomicLoop = new AtomicInteger(0);
         AtomicInteger atomicLoop_bak = new AtomicInteger(0);
         for (UserMonitorDto userMonitorDto : userMonitorDtos) {
-            sendRequest(userMonitorDto, "http://121.36.95.244:9822/api/aweme/appUserVideoList", atomicLoop,
-                atomicLoop_bak);
+            sendRequest(userMonitorDto, "http://127.0.0.1:9822/api/aweme/appUserVideoList", atomicLoop, atomicLoop_bak);
         }
         saveAwemeResult();
     }
@@ -267,7 +268,7 @@ public class TestTask {
     public void moreAppUserVideoList(String threadSize) {
         AtomicInteger atomicLoop = new AtomicInteger(0);
         AtomicInteger atomicLoop_bak = new AtomicInteger(0);
-        moreThreadBatchAweme("http://121.36.95.244:9822/api/aweme/appUserVideoList", atomicLoop, atomicLoop_bak,
+        moreThreadBatchAweme("http://127.0.0.1:9822/api/aweme/appUserVideoList", atomicLoop, atomicLoop_bak,
             Integer.parseInt(threadSize));
         saveAwemeResult();
     }
@@ -278,7 +279,7 @@ public class TestTask {
     public void moreHtmlUserVideoList(String threadSize) {
         AtomicInteger atomicLoop = new AtomicInteger(0);
         AtomicInteger atomicLoop_bak = new AtomicInteger(0);
-        moreThreadBatchAweme("http://121.36.95.244:9822/api/aweme/userVideoList", atomicLoop, atomicLoop_bak,
+        moreThreadBatchAweme("http://127.0.0.1:9822/api/aweme/userVideoList", atomicLoop, atomicLoop_bak,
             Integer.parseInt(threadSize));
         saveAwemeResult();
     }
@@ -338,10 +339,18 @@ public class TestTask {
 
             System.out.println("6小时统计完成，耗时：" + (System.currentTimeMillis() - start) + "ms");
 
+            AwemeLikeQueryCriteria twelve = new AwemeLikeQueryCriteria();
+            twelve.setDateBetweenEnum(DateBetweenEnum.TWELVE_HOUR);
+            awemeLikeService.saveResults(twelve);
+
+            System.out.println("12小时统计完成，耗时：" + (System.currentTimeMillis() - start) + "ms");
+
             // TODO: 2022/3/4 先不要开
-            //            AwemeLikeQueryCriteria hour24 = new AwemeLikeQueryCriteria();
-            //            hour24.setDateBetweenEnum(DateBetweenEnum.ONE_DAY);
-            //            awemeLikeService.saveResults(hour24);
+            AwemeLikeQueryCriteria hour24 = new AwemeLikeQueryCriteria();
+            hour24.setDateBetweenEnum(DateBetweenEnum.ONE_DAY);
+            awemeLikeService.saveResults(hour24);
+
+            System.out.println("24小时统计完成，耗时：" + (System.currentTimeMillis() - start) + "ms");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -409,7 +418,9 @@ public class TestTask {
                                 .nickname(map1.getAuthor()
                                     .getNickname())
                                 .unique_id(map1.getAuthor()
-                                    .getUnique_id());
+                                    .getUnique_id())
+                                .is_delete(map1.getStatus()
+                                    .getIs_delete());
                         // TODO: 2022/3/2
                         //.user_id(SecurityUtils.getCurrentUserId())
 

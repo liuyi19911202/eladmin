@@ -6,4 +6,6 @@ import org.springframework.data.domain.Pageable;
 public interface AwemeService {
 
     Object list(AwemeQueryCriteria criteria, Pageable pageable);
+
+    Object newList(AwemeQueryCriteria criteria, Pageable pageable);
 }

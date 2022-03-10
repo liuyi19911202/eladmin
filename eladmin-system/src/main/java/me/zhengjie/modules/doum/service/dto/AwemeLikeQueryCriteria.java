@@ -26,4 +26,5 @@ public class AwemeLikeQueryCriteria implements Serializable {
     private DateBetweenEnum dateBetweenEnum;
     private Boolean with_goods;
     private String nickname;
+    private String unique_id;
 }

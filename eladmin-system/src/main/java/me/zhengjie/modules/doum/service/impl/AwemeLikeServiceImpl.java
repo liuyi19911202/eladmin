@@ -15,20 +15,29 @@ import me.zhengjie.modules.doum.service.dto.*;
 import me.zhengjie.utils.PageUtil;
 import me.zhengjie.utils.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.index.query.AbstractQueryBuilder;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
 import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ResultsExtractor;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -47,6 +56,8 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
     AwemeResult4Repository awemeResult4Repository;
     @Autowired
     AwemeResult6Repository awemeResult6Repository;
+    @Autowired
+    AwemeResult12Repository awemeResult12Repository;
     @Autowired
     AwemeResult24Repository awemeResult24Repository;
 
@@ -78,6 +89,13 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                 return PageUtil.toPage(sixResponse.getResult(), sixResponse.getPage()
                     .getTotalCount());
 
+            case TWELVE_HOUR:
+                CdosApiPageResponse<AwemeResultDto> twelveResponse = awemeResult12Repository.listForPage(
+                    new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
+                    sortBuilder, AwemeDto.class);
+                return PageUtil.toPage(twelveResponse.getResult(), twelveResponse.getPage()
+                    .getTotalCount());
+
             case ONE_DAY:
                 CdosApiPageResponse<AwemeResultDto> response24 = awemeResult24Repository.listForPage(
                     new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
@@ -88,130 +106,6 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
             default:
                 return null;
         }
-        //        FieldSortBuilder sortBuilder = new FieldSortBuilder("update_time").order(SortOrder.DESC);
-        //        long start_1 = System.currentTimeMillis();
-        //
-        //        log.info("当前criteria：{}", criteria);
-        //        DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.TWO_HOUR);
-        //
-        //        Pair<String, String> dateBetween = switchDateBetween(of);
-        //
-        //        long start = System.currentTimeMillis();
-        //
-        //        // 2小时内的数据
-        //        List<AwemeDto> awemeDtos =
-        //            awemeRepository.listForPage(dateBetween.getLeft(), queryBuilder(dateBetween), sortBuilder, 1000000,
-        //                AwemeDto.class);
-        //
-        //        long end = System.currentTimeMillis();
-        //        System.out.println("查询耗时：" + (end - start) + "ms");
-        //
-        //        Map<Long, List<AwemeDto>> awemeMaps = Safes.of(awemeDtos)
-        //            .parallelStream()
-        //            .collect(Collectors.groupingBy(AwemeDto::getAweme_id));
-        //
-        //        List<AwemeDto> list = Lists.newArrayListWithExpectedSize(awemeDtos.size());
-        //
-        //        for (Map.Entry<Long, List<AwemeDto>> entry : awemeMaps.entrySet()) {
-        //
-        //            List<AwemeDto> valueList = entry.getValue()
-        //                .parallelStream()
-        //                .filter(f -> f.getDigg_count() > 0)
-        //                .collect(Collectors.toList());
-        //
-        //            if (valueList.size() <= 1) {
-        //                continue;
-        //            }
-        //
-        //            // 取最新的一条
-        //            AwemeDto awemeDto = Safes.of(valueList)
-        //                .parallelStream()
-        //                .sorted(Comparator.comparing(AwemeDto::getUpdate_time)
-        //                    .reversed())
-        //                .findFirst()
-        //                .orElse(null);
-        //
-        //            Long max = valueList.parallelStream()
-        //                .max(Comparator.comparing(AwemeDto::getDigg_count))
-        //                .map(AwemeDto::getDigg_count)
-        //                .orElse(0L);
-        //
-        //            Long min = valueList.parallelStream()
-        //                .min(Comparator.comparing(AwemeDto::getDigg_count))
-        //                .map(AwemeDto::getDigg_count)
-        //                .orElse(0L);
-        //
-        //            long diff = max - min;
-        //
-        //            try {
-        //
-        //                Integer sales_max = valueList.parallelStream()
-        //                    .filter(f -> null != f.getWith_goods() && f.getWith_goods())
-        //                    .filter(f -> null != f.getExtra() && f.getExtra()
-        //                        .size() > 0)
-        //                    .filter(f -> null != f.getExtra()
-        //                        .get(0)
-        //                        .getSales())
-        //                    .max(Comparator.comparing(c -> c.getExtra()
-        //                        .get(0)
-        //                        .getSales()))
-        //                    .map(map -> map.getExtra()
-        //                        .get(0)
-        //                        .getSales())
-        //                    .orElse(0);
-        //
-        //                Integer sales_min = valueList.parallelStream()
-        //                    .filter(f -> null != f.getWith_goods() && f.getWith_goods())
-        //                    .filter(f -> null != f.getExtra() && f.getExtra()
-        //                        .size() > 0)
-        //                    .filter(f -> null != f.getExtra()
-        //                        .get(0)
-        //                        .getSales())
-        //                    .min(Comparator.comparing(c -> c.getExtra()
-        //                        .get(0)
-        //                        .getSales()))
-        //                    .map(map -> map.getExtra()
-        //                        .get(0)
-        //                        .getSales())
-        //                    .orElse(0);
-        //
-        //                Integer sales_diff = sales_max - sales_min;
-        //                awemeDto.setSales_diff(sales_diff);
-        //            } catch (Exception e) {
-        //                log.error("异常挂车商品：{}", JSON.toJSON(valueList), e);
-        //            }
-        //
-        //            awemeDto.setDiff(diff);
-        //            list.add(awemeDto);
-        //        }
-        //
-        //        List<AwemeDto> collect = list.parallelStream()
-        //            // 之前只判断点赞的diff是不对的，|| 判断销售的diff
-        //            .filter(f -> f.getDiff() > 0 || f.getSales_diff() > 0)
-        //            .sorted(Comparator.comparing(AwemeDto::getDiff)
-        //                .reversed())
-        //            .collect(Collectors.toList());
-        //
-        //        if (null != criteria.getWith_goods()) {
-        //            if (criteria.getWith_goods()) {
-        //                collect = collect.parallelStream()
-        //                    .filter(f -> null != f.getWith_goods())
-        //                    .filter(f -> f.getWith_goods())
-        //                    .collect(Collectors.toList());
-        //            } else {
-        //                collect = collect.parallelStream()
-        //                    .filter(f -> (null == f.getWith_goods()) || (null != f.getWith_goods() && !f.getWith_goods()))
-        //                    .collect(Collectors.toList());
-        //            }
-        //        }
-        //
-        //        long end_1 = System.currentTimeMillis();
-        //        System.out.println("总耗时：" + (end_1 - start_1) + "ms");
-        //
-        //        return PageUtil.toPage(collect.parallelStream()
-        //            .skip(pageable.getPageNumber() * pageable.getPageSize())
-        //            .limit(pageable.getPageSize())
-        //            .collect(Collectors.toList()), collect.size());
     }
 
     /**
@@ -223,22 +117,31 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
      */
     @SuppressWarnings("all")
     public void saveResults(AwemeLikeQueryCriteria criteria) {
-        FieldSortBuilder sortBuilder = new FieldSortBuilder("update_time").order(SortOrder.DESC);
         long start_1 = System.currentTimeMillis();
 
         log.info("当前criteria：{}", criteria);
         DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.TWO_HOUR);
 
         Pair<String, String> dateBetween = switchDateBetween(of);
-
         long start = System.currentTimeMillis();
 
-        List<AwemeDto> awemeDtos =
-            awemeRepository.listForPage(dateBetween.getLeft(), queryBuilder(dateBetween), sortBuilder, 1000000,
-                AwemeDto.class);
+        /**
+         * 这个n要业务处理一下
+         * 1000个用户 同一批次 返回也就是 1000条记录
+         * todo  每个用户的作品22 x 1000 = 22000条记录
+         *
+         * 但是22000跨索引就不行了，因为上边是倒叙
+         */
+        Integer length = 25000;
+        List<AwemeDto> awemeDtos = Lists.newArrayListWithExpectedSize(length + length);
+        // TODO: 2022/3/9  每次查2遍，一次正序，一次倒叙就可以解决问题
+        awemeDtos.addAll(
+            awemeRepository.aggrList(dateBetween.getLeft(), queryBuilder(dateBetween), length, SortOrder.DESC));
+        awemeDtos.addAll(
+            awemeRepository.aggrList(dateBetween.getLeft(), queryBuilder(dateBetween), length, SortOrder.ASC));
 
         long end = System.currentTimeMillis();
-        log.info("查询耗时：" + (end - start) + "ms");
+        log.info("查询耗时：" + (end - start) + "ms", "查询数据长度：{}", awemeDtos.size());
 
         Map<Long, List<AwemeDto>> awemeMaps = Safes.of(awemeDtos)
             .parallelStream()
@@ -314,7 +217,9 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                                     .map(AwemeExtraDto::getSales)
                                     .orElse(0);
                                 // 当前 - 最小
-                                sales_diff = awemeExtraDto.getSales() - minSales;
+                                if (null != awemeExtraDto.getSales()) {
+                                    sales_diff = awemeExtraDto.getSales() - minSales;
+                                }
 
                             }
 
@@ -375,19 +280,23 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         switch (criteria.getDateBetweenEnum()) {
             case TWO_HOUR:
                 awemeResult2Repository.insert(collect1,
-                    "dm_aweme_result_2" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()));
+                    "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_2");
                 return;
             case FOUR_HOUR:
                 awemeResult4Repository.insert(collect1,
-                    "dm_aweme_result_4" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()));
+                    "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_4");
                 return;
             case SIX_HOUR:
                 awemeResult6Repository.insert(collect1,
-                    "dm_aweme_result_6" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()));
+                    "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_6");
+                return;
+            case TWELVE_HOUR:
+                awemeResult12Repository.insert(collect1,
+                    "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_12");
                 return;
             case ONE_DAY:
                 awemeResult24Repository.insert(collect1,
-                    "dm_aweme_result_24" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()));
+                    "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_24");
                 return;
             default:
         }
@@ -415,6 +324,10 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
             boolQueryBuilder.must(QueryBuilders.termQuery("with_goods", criteria.getWith_goods()));
         }
 
+        if (Objects.nonNull(criteria.getUnique_id())) {
+            boolQueryBuilder.must(QueryBuilders.termQuery("unique_id", criteria.getUnique_id()));
+        }
+
         log.info(boolQueryBuilder);
         return boolQueryBuilder;
     }
@@ -433,6 +346,10 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                 return Pair.of(DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDateTime(), -6),
                     DateUtil.FORMAT_DATE_TIME),
                     DateUtil.formatDate(DateUtil.getCurrentDateTime(), DateUtil.FORMAT_DATE_TIME));
+            case TWELVE_HOUR:
+                return Pair.of(DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDateTime(), -12),
+                    DateUtil.FORMAT_DATE_TIME),
+                    DateUtil.formatDate(DateUtil.getCurrentDateTime(), DateUtil.FORMAT_DATE_TIME));
             case ONE_DAY:
                 return Pair.of(DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDateTime(), -24),
                     DateUtil.FORMAT_DATE_TIME),
@@ -443,4 +360,5 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                     DateUtil.formatDate(DateUtil.getCurrentDateTime(), DateUtil.FORMAT_DATE_TIME));
         }
     }
+
 }

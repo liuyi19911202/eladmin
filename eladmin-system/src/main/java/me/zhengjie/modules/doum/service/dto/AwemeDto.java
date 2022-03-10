@@ -37,6 +37,10 @@ public class AwemeDto {
      * 抖音号
      */
     private String unique_id;
+    /**
+     * 视频是否删除
+     */
+    private Boolean is_delete;
     @JsonFormat(locale = "zh", timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     private Date create_time;
     @JsonFormat(locale = "zh", timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")

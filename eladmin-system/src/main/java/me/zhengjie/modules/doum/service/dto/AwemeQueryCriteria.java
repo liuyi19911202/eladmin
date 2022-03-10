@@ -28,4 +28,5 @@ import java.util.Set;
 public class AwemeQueryCriteria implements Serializable {
 
     private String nickname;
+    private String unique_id;
 }

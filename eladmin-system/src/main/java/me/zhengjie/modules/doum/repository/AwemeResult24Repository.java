@@ -20,39 +20,23 @@ import java.util.List;
 @Log4j2
 @Component
 public class AwemeResult24Repository extends BaseElasticSearchRepository<AwemeResultDto> {
-    private String date = DateUtil.formatDate(DateUtil.getCurrentDate());
-    private String index = "dm_aweme_result_24" + "_" + date;
+    private String index = "dm_aweme_result";
     private String doc = "_doc";
 
     public CdosApiPageResponse<AwemeResultDto> listForPage(PageInfo page, AbstractQueryBuilder boolQueryBuilder,
         SortBuilder sortBuilder, Class clazz) {
-        return super.listForPage(index, doc, page, boolQueryBuilder, sortBuilder, clazz);
+        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_24", doc, page,
+            boolQueryBuilder, sortBuilder, clazz);
     }
 
-    public List<AwemeResultDto> listForPage(DateBetweenEnum dateBetweenEnum, AbstractQueryBuilder boolQueryBuilder,
-        SortBuilder sortBuilder, Integer n, Class clazz) {
-        return super.listForPage(getIndex(dateBetweenEnum), doc, boolQueryBuilder, sortBuilder, n, clazz);
+    public List<AwemeResultDto> listForPage(AbstractQueryBuilder boolQueryBuilder, SortBuilder sortBuilder, Integer n,
+        Class clazz) {
+        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_24", doc,
+            boolQueryBuilder, sortBuilder, n, clazz);
     }
 
     public void insert(List<AwemeResultDto> list, String index) {
         super.insert(index, doc, list);
-    }
-
-    private static String getIndex(DateBetweenEnum dateBetweenEnum) {
-
-        String date = DateUtil.formatDate(DateUtil.getCurrentDate());
-        switch (dateBetweenEnum) {
-            case TWO_HOUR:
-                return "dm_aweme_result_2" + "_" + date;
-            case FOUR_HOUR:
-                return "dm_aweme_result_4" + "_" + date;
-            case SIX_HOUR:
-                return "dm_aweme_result_6" + "_" + date;
-            case ONE_DAY:
-                return "dm_aweme_result_24" + "_" + date;
-            default:
-                return "";
-        }
     }
 
 }

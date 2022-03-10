@@ -19,19 +19,19 @@ import java.util.List;
  */
 @Log4j2
 @Component
-public class AwemeResult6Repository extends BaseElasticSearchRepository<AwemeResultDto> {
+public class AwemeResult12Repository extends BaseElasticSearchRepository<AwemeResultDto> {
     private String index = "dm_aweme_result";
     private String doc = "_doc";
 
     public CdosApiPageResponse<AwemeResultDto> listForPage(PageInfo page, AbstractQueryBuilder boolQueryBuilder,
         SortBuilder sortBuilder, Class clazz) {
-        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_6", doc, page,
+        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_12", doc, page,
             boolQueryBuilder, sortBuilder, clazz);
     }
 
     public List<AwemeResultDto> listForPage(AbstractQueryBuilder boolQueryBuilder, SortBuilder sortBuilder, Integer n,
         Class clazz) {
-        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_6", doc,
+        return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_12", doc,
             boolQueryBuilder, sortBuilder, n, clazz);
     }
 

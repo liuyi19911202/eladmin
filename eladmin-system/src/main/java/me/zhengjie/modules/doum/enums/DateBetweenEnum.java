@@ -18,6 +18,7 @@ public enum DateBetweenEnum {
      * 最近6小时
      */
     SIX_HOUR,
+    TWELVE_HOUR,
     /**
      * 最近一天
      */

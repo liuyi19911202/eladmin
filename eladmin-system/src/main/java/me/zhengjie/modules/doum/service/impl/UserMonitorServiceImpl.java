@@ -96,7 +96,7 @@ public class UserMonitorServiceImpl implements UserMonitorService {
             HttpEntity<String> requestEntity = new HttpEntity<>(jsonParam, headers);
 
             String userStr = userHttpRestTemplate.getDelegate()
-                .postForObject("http://121.36.95.244:9822/api/aweme/userInfo", requestEntity, String.class);
+                .postForObject("http://127.0.0.1:9822/api/aweme/userInfo", requestEntity, String.class);
 
             // 格式化
             UserInfoDto userInfoDto = JSON.parseObject(userStr, UserInfoDto.class);

@@ -47,4 +47,12 @@ public class AwemeController {
     public ResponseEntity<Object> queryAweme(AwemeQueryCriteria criteria, Pageable pageable) {
         return new ResponseEntity<>(awemeService.list(criteria, pageable), HttpStatus.OK);
     }
+
+    @Log("抖音爬虫最新列表")
+    @ApiOperation("抖音作品最新列表")
+    @GetMapping("/queryNewAweme")
+    @PreAuthorize("@el.check('aweme:newlist')")
+    public ResponseEntity<Object> queryNewAweme(AwemeQueryCriteria criteria, Pageable pageable) {
+        return new ResponseEntity<>(awemeService.newList(criteria, pageable), HttpStatus.OK);
+    }
 }
