@@ -1,6 +1,7 @@
 package me.zhengjie.modules.doum.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.alipay.api.domain.Person;
 import com.cdos.api.bean.PageInfo;
 import com.cdos.api.bean.cdosapi.CdosApiPageResponse;
 import com.cdos.utils.DateUtil;
@@ -15,6 +16,7 @@ import me.zhengjie.modules.doum.service.dto.*;
 import me.zhengjie.utils.PageUtil;
 import me.zhengjie.utils.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.poi.ss.formula.functions.T;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.AbstractQueryBuilder;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -66,46 +68,96 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         // 按点赞diff排序
         FieldSortBuilder sortBuilder = new FieldSortBuilder("diff").order(SortOrder.DESC);
         DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.TWO_HOUR);
-
+        CdosApiPageResponse<AwemeResultDto> responseList;
         switch (of) {
             case TWO_HOUR:
-                CdosApiPageResponse<AwemeResultDto> twoResponse = awemeResult2Repository.listForPage(
+                responseList = awemeResult2Repository.listForPage(
                     new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
-                    sortBuilder, AwemeDto.class);
-                return PageUtil.toPage(twoResponse.getResult(), twoResponse.getPage()
-                    .getTotalCount());
-
+                    sortBuilder, AwemeResultDto.class);
+                break;
             case FOUR_HOUR:
-                CdosApiPageResponse<AwemeResultDto> fourResponse = awemeResult4Repository.listForPage(
+                responseList = awemeResult4Repository.listForPage(
                     new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
-                    sortBuilder, AwemeDto.class);
-                return PageUtil.toPage(fourResponse.getResult(), fourResponse.getPage()
-                    .getTotalCount());
-
+                    sortBuilder, AwemeResultDto.class);
+                break;
             case SIX_HOUR:
-                CdosApiPageResponse<AwemeResultDto> sixResponse = awemeResult6Repository.listForPage(
+                responseList = awemeResult6Repository.listForPage(
                     new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
-                    sortBuilder, AwemeDto.class);
-                return PageUtil.toPage(sixResponse.getResult(), sixResponse.getPage()
-                    .getTotalCount());
-
+                    sortBuilder, AwemeResultDto.class);
+                break;
             case TWELVE_HOUR:
-                CdosApiPageResponse<AwemeResultDto> twelveResponse = awemeResult12Repository.listForPage(
+                responseList = awemeResult12Repository.listForPage(
                     new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
-                    sortBuilder, AwemeDto.class);
-                return PageUtil.toPage(twelveResponse.getResult(), twelveResponse.getPage()
-                    .getTotalCount());
-
+                    sortBuilder, AwemeResultDto.class);
+                break;
             case ONE_DAY:
-                CdosApiPageResponse<AwemeResultDto> response24 = awemeResult24Repository.listForPage(
+                responseList = awemeResult24Repository.listForPage(
                     new PageInfo(pageable.getPageNumber() + 1, pageable.getPageSize()), queryBuilder(criteria),
-                    sortBuilder, AwemeDto.class);
-                return PageUtil.toPage(response24.getResult(), response24.getPage()
-                    .getTotalCount());
-
+                    sortBuilder, AwemeResultDto.class);
+                break;
             default:
-                return null;
+                return new CdosApiPageResponse<AwemeResultDto>();
         }
+
+        return PageUtil.toPage(responseList.getResult()
+            .parallelStream()
+            .map(map -> {
+                map.setStr_aweme_id(String.valueOf(map.getAweme_id()));
+                return map;
+            })
+            .collect(Collectors.toList()), responseList.getPage()
+            .getTotalCount());
+    }
+
+    @Override
+    public Object detail(AwemeLikeQueryCriteria criteria) {
+
+        DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.ONE_DAY);
+        Pair<String, String> dateBetween = switchDateBetween(of);
+
+        FieldSortBuilder update_time = new FieldSortBuilder("update_time").order(SortOrder.ASC);
+
+        // TODO: 2022/3/10 按照作品查询，10分钟一次，一天，最多不可能大于1w次
+        List<AwemeDto> awemeDtos =
+            awemeRepository.listForPage(dateBetween.getLeft(), queryBuilder(dateBetween, criteria), update_time, 10000,
+                AwemeDto.class);
+
+        AwemeDetailDto awemeDetailDto = new AwemeDetailDto();
+
+        TreeMap<Date, Long> collect = Safes.of(awemeDtos)
+            .parallelStream()
+            .collect(Collectors.toMap(AwemeDto::getUpdate_time, AwemeDto::getDigg_count, (last, next) -> next,
+                TreeMap::new));
+
+        TreeMap<Date, Integer> collect1 = new TreeMap<>();
+        for (AwemeDto awemeDto : awemeDtos) {
+            Integer sales = 0;
+            if (null != awemeDto.getExtra() && awemeDto.getExtra()
+                .size() > 0) {
+                if (null != awemeDto.getExtra()
+                    .get(0)
+                    .getSales()) {
+                    // TODO: 2022/3/11 只支持展示一个
+                    sales = awemeDto.getExtra()
+                        .get(0)
+                        .getSales();
+                }
+            }
+            collect1.put(awemeDto.getUpdate_time(), sales);
+        }
+
+        awemeDetailDto.setXAxisData(collect.keySet());
+        awemeDetailDto.setDigg_count(collect.values()
+            .stream()
+            .collect(Collectors.toList()));
+
+        // TODO: 2022/3/10 时间怎么办，如果挂车的点赞怎么办，是不是没有的时候要补空
+        awemeDetailDto.setKey1(collect1.keySet());
+        awemeDetailDto.setSales(collect1.values()
+            .stream()
+            .collect(Collectors.toList()));
+
+        return awemeDetailDto;
     }
 
     /**
@@ -136,9 +188,9 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         List<AwemeDto> awemeDtos = Lists.newArrayListWithExpectedSize(length + length);
         // TODO: 2022/3/9  每次查2遍，一次正序，一次倒叙就可以解决问题
         awemeDtos.addAll(
-            awemeRepository.aggrList(dateBetween.getLeft(), queryBuilder(dateBetween), length, SortOrder.DESC));
+            awemeRepository.aggrList(dateBetween.getLeft(), queryBuilder(dateBetween, null), length, SortOrder.DESC));
         awemeDtos.addAll(
-            awemeRepository.aggrList(dateBetween.getLeft(), queryBuilder(dateBetween), length, SortOrder.ASC));
+            awemeRepository.aggrList(dateBetween.getLeft(), queryBuilder(dateBetween, null), length, SortOrder.ASC));
 
         long end = System.currentTimeMillis();
         log.info("查询耗时：" + (end - start) + "ms", "查询数据长度：{}", awemeDtos.size());
@@ -302,12 +354,18 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         }
     }
 
-    public BoolQueryBuilder queryBuilder(Pair<String, String> date) {
+    public BoolQueryBuilder queryBuilder(Pair<String, String> date, AwemeLikeQueryCriteria criteria) {
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 
         boolQueryBuilder.filter(QueryBuilders.rangeQuery("update_time")
             .gte(date.getLeft())
             .lte(date.getRight()));
+
+        if (null != criteria) {
+            if (StringUtils.isNotEmpty(criteria.getStr_aweme_id())) {
+                boolQueryBuilder.must(QueryBuilders.termQuery("aweme_id", Long.valueOf(criteria.getStr_aweme_id())));
+            }
+        }
 
         log.info(boolQueryBuilder);
         return boolQueryBuilder;

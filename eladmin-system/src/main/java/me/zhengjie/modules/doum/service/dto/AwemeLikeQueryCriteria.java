@@ -27,4 +27,5 @@ public class AwemeLikeQueryCriteria implements Serializable {
     private Boolean with_goods;
     private String nickname;
     private String unique_id;
+    private String str_aweme_id;
 }

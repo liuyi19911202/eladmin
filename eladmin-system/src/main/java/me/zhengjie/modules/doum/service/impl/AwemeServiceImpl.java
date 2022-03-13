@@ -73,6 +73,10 @@ public class AwemeServiceImpl implements AwemeService {
                     List<AwemeDto> awemeDtos = collect.get(date);
                     // 按发布时间排序
                     List<AwemeDto> collect1 = awemeDtos.stream()
+                        .map(map -> {
+                            map.setStr_aweme_id(String.valueOf(map.getAweme_id()));
+                            return map;
+                        })
                         .sorted(Comparator.comparing(AwemeDto::getCreate_time)
                             .reversed())
                         .collect(Collectors.toList());

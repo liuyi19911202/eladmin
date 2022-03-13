@@ -67,6 +67,8 @@ public class AwemeDto {
      */
     @Transient
     private Integer sales_diff;
+    @Transient
+    private String str_aweme_id;
     /**
      * 冗余一下 多个商品
      */

@@ -75,4 +75,10 @@ public class AwemeResultDto {
     private Integer sales_diff;
     @Transient
     private List<AwemeResultDto> detailfList;
+
+    /**
+     * 冗余一个，浏览器丢了3位
+     */
+    @Transient
+    private String str_aweme_id;
 }

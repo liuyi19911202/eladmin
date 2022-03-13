@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Api(tags = "抖音：作品点赞趋势")
 @RestController
-    @RequestMapping("/api/aweme/like")
+@RequestMapping("/api/aweme/like")
 @RequiredArgsConstructor
 public class AwemeLikeController {
 
@@ -47,5 +47,13 @@ public class AwemeLikeController {
     @PreAuthorize("@el.check('aweme:like:list')")
     public ResponseEntity<Object> queryAweme(AwemeLikeQueryCriteria criteria, Pageable pageable) {
         return new ResponseEntity<>(awemeLikeService.list(criteria, pageable), HttpStatus.OK);
+    }
+
+    @Log("作品点赞趋势详情")
+    @ApiOperation("作品点赞趋势详情")
+    @GetMapping("/queryAwemeDetail")
+    @PreAuthorize("@el.check('aweme:like:detail')")
+    public ResponseEntity<Object> queryAwemeDetail(AwemeLikeQueryCriteria criteria) {
+        return new ResponseEntity<>(awemeLikeService.detail(criteria), HttpStatus.OK);
     }
 }
