@@ -81,4 +81,6 @@ public class AwemeResultDto {
      */
     @Transient
     private String str_aweme_id;
+    @Transient
+    private String remark;
 }

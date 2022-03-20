@@ -7,9 +7,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author liuyi
@@ -25,7 +28,7 @@ public class UserMonitorDto {
     /**
      * 当前登录用户
      */
-    private String user_id;
+    private Set<Long> user_id;
     /**
      * 主页链接
      * <p>
@@ -61,6 +64,11 @@ public class UserMonitorDto {
      * 头像
      */
     private String[] avatar_medium;
-    @JsonFormat(locale="zh", timezone="GMT+8", pattern="yyyy-MM-dd HH:mm:ss")
+    @JsonFormat(locale = "zh", timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
     private Date create_time;
+
+    private String remark;
+
+    @Transient
+    private Long id;
 }

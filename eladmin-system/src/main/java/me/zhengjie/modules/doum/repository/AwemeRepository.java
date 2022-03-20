@@ -28,10 +28,7 @@ import org.springframework.data.elasticsearch.core.ResultsExtractor;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -55,7 +52,7 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
 
     public List<AwemeDto> listForPage(String from, AbstractQueryBuilder boolQueryBuilder, SortBuilder sortBuilder,
         Integer n, Class clazz) {
-        return super.listForPage(getIndex(from), doc, boolQueryBuilder, sortBuilder, n, clazz);
+        return super.listForPage(getIndexForDetail(from), doc, boolQueryBuilder, sortBuilder, n, clazz);
     }
 
     public List<AwemeDto> aggrList(String from, AbstractQueryBuilder boolQueryBuilder, Integer size,
@@ -131,6 +128,11 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
         super.insert(index, doc, list);
     }
 
+    public static void main(String[] args) {
+        Pair<String, String> of = Pair.of("2022-03-19 01:03:52", "2022-03-20 01:03:52");
+        System.out.println(Arrays.toString(getIndex(of.getLeft())));
+    }
+
     /**
      * 主要判断开始时间，决定是否跨索引
      */
@@ -141,7 +143,6 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
          */
         Date currentDate = DateUtil.getCurrentDate();
 
-        DateUtil.formatDate(DateUtil.getDate(), "yyyy-MM-dd HH:mm:ss");
         Date startDate = DateUtil.parseDatetime(from);
 
         /**
@@ -156,12 +157,49 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
 
             return new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate)};
         } else if (DateUtil.comapreDateTime(startDate, currentDate) == -1) {
-            // 取全部索引
-            log.info("取指定的索引：{}，{}", new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate),
-                "dm_aweme" + "_" + DateUtil.formatDate(startDate)});
-
-            return new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate),
+            // 取指定索引
+            String[] strings = {"dm_aweme" + "_" + DateUtil.formatDate(currentDate),
                 "dm_aweme" + "_" + DateUtil.formatDate(startDate)};
+
+            log.info("取指定的索引：{}", Arrays.toString(strings));
+            return strings;
+        }
+
+        return new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate)};
+    }
+
+    private static String[] getIndexForDetail(String from) {
+
+        /**
+         * 当日的00：00：00
+         */
+        Date currentDate = DateUtil.getCurrentDate();
+        Date startDate = DateUtil.parseDate(from);
+
+        /**
+         * 1 currentDate > date
+         * -1 currentDate < date
+         * 0 currentDate =  date
+         */
+        if (DateUtil.comapreDateTime(startDate, currentDate) == 1
+            || DateUtil.comapreDateTime(startDate, currentDate) == 0) {
+            // 还是取当天的索引
+            log.info("取当天的索引：{}", new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate)});
+
+            return new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate)};
+        } else if (DateUtil.comapreDateTime(startDate, currentDate) == -1) {
+
+            List<Date> dates = DateUtil.betweenDays(startDate, currentDate);
+            List<String> collect = Safes.of(dates)
+                .stream()
+                .map(DateUtil::formatDate)
+                .map(map -> "dm_aweme" + "_" + map)
+                .collect(Collectors.toList());
+            String[] strings = new String[collect.size()];
+            // 取指定索引
+            log.info("取指定的索引：{}", Arrays.toString(collect.toArray(strings)));
+
+            return collect.toArray(strings);
         }
 
         return new String[] {"dm_aweme" + "_" + DateUtil.formatDate(currentDate)};

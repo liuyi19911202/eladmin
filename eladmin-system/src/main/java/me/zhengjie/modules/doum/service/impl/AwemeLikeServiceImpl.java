@@ -12,8 +12,10 @@ import lombok.extern.log4j.Log4j2;
 import me.zhengjie.modules.doum.enums.DateBetweenEnum;
 import me.zhengjie.modules.doum.repository.*;
 import me.zhengjie.modules.doum.service.AwemeLikeService;
+import me.zhengjie.modules.doum.service.UserMonitorService;
 import me.zhengjie.modules.doum.service.dto.*;
 import me.zhengjie.utils.PageUtil;
+import me.zhengjie.utils.SecurityUtils;
 import me.zhengjie.utils.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.poi.ss.formula.functions.T;
@@ -39,6 +41,7 @@ import org.springframework.data.elasticsearch.core.ResultsExtractor;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -62,6 +65,12 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
     AwemeResult12Repository awemeResult12Repository;
     @Autowired
     AwemeResult24Repository awemeResult24Repository;
+    @Autowired
+    UserMonitorService userMonitorService;
+    @Autowired
+    UserRemarkRepository userRemarkRepository;
+    @Autowired
+    UserMonitorServiceImpl userMonitorServiceImpl;
 
     @Override
     public Object list(AwemeLikeQueryCriteria criteria, Pageable pageable) {
@@ -98,11 +107,16 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
             default:
                 return new CdosApiPageResponse<AwemeResultDto>();
         }
-
+        Long currentUserId = SecurityUtils.getCurrentUserId();
         return PageUtil.toPage(responseList.getResult()
             .parallelStream()
             .map(map -> {
                 map.setStr_aweme_id(String.valueOf(map.getAweme_id()));
+                UserRemarkDto remarkByUid =
+                    userMonitorServiceImpl.getRemarkByUid(map.getAuthor_user_id(), currentUserId);
+                if (null != remarkByUid) {
+                    map.setRemark(remarkByUid.getRemark());
+                }
                 return map;
             })
             .collect(Collectors.toList()), responseList.getPage()
@@ -112,8 +126,8 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
     @Override
     public Object detail(AwemeLikeQueryCriteria criteria) {
 
-        DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.ONE_DAY);
-        Pair<String, String> dateBetween = switchDateBetween(of);
+        DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.THREE_DAY);
+        Pair<String, String> dateBetween = switchDateBetweenDetail(of);
 
         FieldSortBuilder update_time = new FieldSortBuilder("update_time").order(SortOrder.ASC);
 
@@ -171,10 +185,9 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
     public void saveResults(AwemeLikeQueryCriteria criteria) {
         long start_1 = System.currentTimeMillis();
 
-        log.info("当前criteria：{}", criteria);
-        DateBetweenEnum of = Safes.of(criteria.getDateBetweenEnum(), DateBetweenEnum.TWO_HOUR);
+        Pair<String, String> dateBetween = switchDateBetween(criteria.getDateBetweenEnum());
+        log.info("当前dateBetween === {},{}", dateBetween.getLeft(), dateBetween.getRight());
 
-        Pair<String, String> dateBetween = switchDateBetween(of);
         long start = System.currentTimeMillis();
 
         /**
@@ -184,7 +197,7 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
          *
          * 但是22000跨索引就不行了，因为上边是倒叙
          */
-        Integer length = 25000;
+        Integer length = 31680000;
         List<AwemeDto> awemeDtos = Lists.newArrayListWithExpectedSize(length + length);
         // TODO: 2022/3/9  每次查2遍，一次正序，一次倒叙就可以解决问题
         awemeDtos.addAll(
@@ -331,22 +344,27 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         // 直接存储
         switch (criteria.getDateBetweenEnum()) {
             case TWO_HOUR:
+                awemeResult2Repository.deleteIndex();
                 awemeResult2Repository.insert(collect1,
                     "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_2");
                 return;
             case FOUR_HOUR:
+                awemeResult4Repository.deleteIndex();
                 awemeResult4Repository.insert(collect1,
                     "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_4");
                 return;
             case SIX_HOUR:
+                awemeResult6Repository.deleteIndex();
                 awemeResult6Repository.insert(collect1,
                     "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_6");
                 return;
             case TWELVE_HOUR:
+                awemeResult12Repository.deleteIndex();
                 awemeResult12Repository.insert(collect1,
                     "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_12");
                 return;
             case ONE_DAY:
+                awemeResult24Repository.deleteIndex();
                 awemeResult24Repository.insert(collect1,
                     "dm_aweme_result" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_24");
                 return;
@@ -374,6 +392,10 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
     public BoolQueryBuilder queryBuilder(AwemeLikeQueryCriteria criteria) {
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
 
+        if (SecurityUtils.getCurrentUserId() != 1) {
+            boolQueryBuilder.must(QueryBuilders.termsQuery("author_user_id", userMonitorService.getAuthorUserId()));
+        }
+
         if (StringUtils.isNoneBlank(criteria.getNickname())) {
             boolQueryBuilder.must(QueryBuilders.termQuery("nickname", criteria.getNickname()));
         }
@@ -385,11 +407,19 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         if (Objects.nonNull(criteria.getUnique_id())) {
             boolQueryBuilder.must(QueryBuilders.termQuery("unique_id", criteria.getUnique_id()));
         }
+        if (null != criteria.getCreate_time() && criteria.getCreate_time().length > 0) {
+            boolQueryBuilder.filter(QueryBuilders.rangeQuery("create_time")
+                .gte(criteria.getCreate_time()[0])
+                .lte(criteria.getCreate_time()[1]));
+        }
 
         log.info(boolQueryBuilder);
         return boolQueryBuilder;
     }
 
+    /**
+     * 列表用
+     */
     private Pair<String, String> switchDateBetween(DateBetweenEnum dateBetweenEnum) {
         switch (dateBetweenEnum) {
             case TWO_HOUR:
@@ -412,10 +442,50 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                 return Pair.of(DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDateTime(), -24),
                     DateUtil.FORMAT_DATE_TIME),
                     DateUtil.formatDate(DateUtil.getCurrentDateTime(), DateUtil.FORMAT_DATE_TIME));
+            case THREE_DAY:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addDays(DateUtil.getCurrentDateTime(), -2), DateUtil.FORMAT_DATE_TIME),
+                    DateUtil.formatDate(DateUtil.getCurrentDateTime(), DateUtil.FORMAT_DATE_TIME));
             default:
                 return Pair.of(DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDateTime(), -2),
                     DateUtil.FORMAT_DATE_TIME),
                     DateUtil.formatDate(DateUtil.getCurrentDateTime(), DateUtil.FORMAT_DATE_TIME));
+        }
+    }
+
+    /**
+     * 详情用
+     */
+    private Pair<String, String> switchDateBetweenDetail(DateBetweenEnum dateBetweenEnum) {
+        switch (dateBetweenEnum) {
+            case TWO_HOUR:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDate(), -2), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
+            case FOUR_HOUR:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDate(), -4), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
+            case SIX_HOUR:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDate(), -6), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
+            case TWELVE_HOUR:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDate(), -12), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
+            case ONE_DAY:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDate(), -24), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
+            case THREE_DAY:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addDays(DateUtil.getCurrentDate(), -2), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
+            default:
+                return Pair.of(
+                    DateUtil.formatDate(DateUtil.addHours(DateUtil.getCurrentDate(), -2), DateUtil.DATE_FORMAT),
+                    DateUtil.formatDate(DateUtil.getCurrentDate(), DateUtil.DATE_FORMAT));
         }
     }
 

@@ -8,9 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import me.zhengjie.modules.doum.repository.AwemeRepository;
 import me.zhengjie.modules.doum.service.AwemeService;
+import me.zhengjie.modules.doum.service.UserMonitorService;
 import me.zhengjie.modules.doum.service.dto.AwemeDto;
 import me.zhengjie.modules.doum.service.dto.AwemeQueryCriteria;
 import me.zhengjie.utils.PageUtil;
+import me.zhengjie.utils.SecurityUtils;
 import me.zhengjie.utils.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -34,6 +36,8 @@ import java.util.stream.Collectors;
 public class AwemeServiceImpl implements AwemeService {
     @Autowired
     AwemeRepository awemeRepository;
+    @Autowired
+    UserMonitorService userMonitorService;
 
     /**
      * 取最新的一批次爬虫数据
@@ -115,12 +119,20 @@ public class AwemeServiceImpl implements AwemeService {
 
         boolQueryBuilder.must(QueryBuilders.termQuery("unique_id", criteria.getUnique_id()));
 
+        if (SecurityUtils.getCurrentUserId() != 1) {
+            boolQueryBuilder.must(QueryBuilders.termsQuery("author_user_id", userMonitorService.getAuthorUserId()));
+        }
+
         log.info(boolQueryBuilder);
         return boolQueryBuilder;
     }
 
     public BoolQueryBuilder queryBuilder(AwemeQueryCriteria criteria) {
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+
+        if (SecurityUtils.getCurrentUserId() != 1) {
+            boolQueryBuilder.must(QueryBuilders.termsQuery("author_user_id", userMonitorService.getAuthorUserId()));
+        }
 
         if (StringUtils.isNoneBlank(criteria.getNickname())) {
             boolQueryBuilder.must(QueryBuilders.termQuery("nickname", criteria.getNickname()));

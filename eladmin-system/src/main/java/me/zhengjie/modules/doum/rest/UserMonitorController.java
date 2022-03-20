@@ -23,6 +23,7 @@ import me.zhengjie.annotation.Log;
 import me.zhengjie.modules.doum.service.UserMonitorService;
 import me.zhengjie.modules.doum.service.dto.UserMonitorDto;
 import me.zhengjie.modules.doum.service.dto.UserMonitorQueryCriteria;
+import me.zhengjie.modules.system.domain.User;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +48,6 @@ public class UserMonitorController {
     @ApiOperation("查询用户监控列表")
     @GetMapping
     @AnonymousAccess
-//    @PreAuthorize("@el.check('doum:user:list')")
     public ResponseEntity<Object> queryUser(UserMonitorQueryCriteria criteria, Pageable pageable) {
 
         return new ResponseEntity<>(userMonitorService.list(criteria, pageable), HttpStatus.OK);
@@ -62,20 +62,28 @@ public class UserMonitorController {
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
-    @Log("新增监控用户")
-    @ApiOperation("新增监控用户")
-    @PostMapping
-    @PreAuthorize("@el.check('doum:user:add')")
-    public ResponseEntity<Object> createUser(@Validated @RequestBody UserMonitorDto resources) {
-        //        userMonitorService.add(resources);
-        return new ResponseEntity<>(HttpStatus.CREATED);
+    @Log("获取用户备注")
+    @ApiOperation("获取用户备注")
+    @GetMapping("/updateRemark")
+    @AnonymousAccess
+    public ResponseEntity<Object> getRemark(UserMonitorQueryCriteria criteria) {
+        return new ResponseEntity<>(userMonitorService.getRemark(criteria), HttpStatus.OK);
+    }
+
+    @Log("修改备注")
+    @ApiOperation("修改用户备注")
+    @PostMapping("/updateRemark")
+    @AnonymousAccess
+    public ResponseEntity<Object> updateRemark(UserMonitorQueryCriteria criteria) {
+        userMonitorService.updateRemark(criteria);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     @Log("删除监控用户")
     @ApiOperation("删除监控用户")
     @DeleteMapping
-    @PreAuthorize("@el.check('doum:user:del')")
-    public ResponseEntity<Object> deleteUser(@RequestBody Set<String> ids) {
+    @AnonymousAccess
+    public ResponseEntity<Object> deleteUser(@RequestBody Set<Long> ids) {
         userMonitorService.delete(ids);
         return new ResponseEntity<>(HttpStatus.OK);
     }

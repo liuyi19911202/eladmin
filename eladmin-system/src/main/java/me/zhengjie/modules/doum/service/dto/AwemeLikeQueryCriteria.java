@@ -28,4 +28,5 @@ public class AwemeLikeQueryCriteria implements Serializable {
     private String nickname;
     private String unique_id;
     private String str_aweme_id;
+    private String[] create_time;
 }

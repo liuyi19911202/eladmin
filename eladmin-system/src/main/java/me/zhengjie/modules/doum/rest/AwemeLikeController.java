@@ -18,6 +18,7 @@ package me.zhengjie.modules.doum.rest;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import me.zhengjie.annotation.AnonymousAccess;
 import me.zhengjie.annotation.Log;
 import me.zhengjie.modules.doum.service.AwemeLikeService;
 import me.zhengjie.modules.doum.service.dto.AwemeLikeQueryCriteria;
@@ -52,7 +53,7 @@ public class AwemeLikeController {
     @Log("作品点赞趋势详情")
     @ApiOperation("作品点赞趋势详情")
     @GetMapping("/queryAwemeDetail")
-    @PreAuthorize("@el.check('aweme:like:detail')")
+    @AnonymousAccess
     public ResponseEntity<Object> queryAwemeDetail(AwemeLikeQueryCriteria criteria) {
         return new ResponseEntity<>(awemeLikeService.detail(criteria), HttpStatus.OK);
     }

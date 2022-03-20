@@ -18,6 +18,7 @@ package me.zhengjie.modules.doum.rest;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import me.zhengjie.annotation.AnonymousAccess;
 import me.zhengjie.annotation.Log;
 import me.zhengjie.modules.doum.service.AwemeService;
 import me.zhengjie.modules.doum.service.dto.AwemeQueryCriteria;
@@ -43,7 +44,7 @@ public class AwemeController {
     @Log("列表查询抖音作品列表")
     @ApiOperation("抖音作品列表")
     @GetMapping
-    @PreAuthorize("@el.check('aweme:list')")
+    @AnonymousAccess
     public ResponseEntity<Object> queryAweme(AwemeQueryCriteria criteria, Pageable pageable) {
         return new ResponseEntity<>(awemeService.list(criteria, pageable), HttpStatus.OK);
     }
@@ -51,7 +52,7 @@ public class AwemeController {
     @Log("抖音爬虫最新列表")
     @ApiOperation("抖音作品最新列表")
     @GetMapping("/queryNewAweme")
-    @PreAuthorize("@el.check('aweme:newlist')")
+    @AnonymousAccess
     public ResponseEntity<Object> queryNewAweme(AwemeQueryCriteria criteria, Pageable pageable) {
         return new ResponseEntity<>(awemeService.newList(criteria, pageable), HttpStatus.OK);
     }

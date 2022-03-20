@@ -36,6 +36,10 @@ public class AwemeResult2Repository extends BaseElasticSearchRepository<AwemeRes
             boolQueryBuilder, sortBuilder, n, clazz);
     }
 
+    public Boolean deleteIndex() {
+        return super.deleteIndex(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()) + "_2");
+    }
+
     public void insert(List<AwemeResultDto> list, String index) {
         super.insert(index, doc, list);
     }

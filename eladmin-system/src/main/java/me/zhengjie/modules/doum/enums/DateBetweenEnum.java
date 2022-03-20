@@ -22,5 +22,9 @@ public enum DateBetweenEnum {
     /**
      * 最近一天
      */
-    ONE_DAY;
+    ONE_DAY,
+    /**
+     * 最近三天
+     */
+    THREE_DAY;
 }

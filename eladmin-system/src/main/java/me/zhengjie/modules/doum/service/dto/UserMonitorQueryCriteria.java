@@ -15,15 +15,30 @@
  */
 package me.zhengjie.modules.doum.service.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.Date;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserMonitorQueryCriteria implements Serializable {
 
     private String home_url;
     private String nickname;
     private Date create_time;
+    /**
+     * 用户id
+     */
+    private Long uid;
+    private String remark;
+    /**
+     * 当前登陆用户id
+     */
+    private Long user_id;
 }
