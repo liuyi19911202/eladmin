@@ -62,6 +62,15 @@ public class UserMonitorController {
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
 
+    @Log("爬虫用户信息")
+    @ApiOperation("爬虫用户信息")
+    @PostMapping
+    @AnonymousAccess
+    public ResponseEntity<Object> add(@RequestBody UserMonitorQueryCriteria criteria) {
+        userMonitorService.getUser1(criteria);
+        return new ResponseEntity<>(HttpStatus.CREATED);
+    }
+
     @Log("获取用户备注")
     @ApiOperation("获取用户备注")
     @GetMapping("/updateRemark")

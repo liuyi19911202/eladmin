@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * @author liuyi
  * @date 2022/3/1
@@ -13,8 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class StatusDto {
-    private Boolean with_goods;
-    private Boolean is_delete;
-    private Boolean is_private;
+public class AwemeDdetailDataDto {
+    private AwemeListObjectDto aweme_detail;
+    private Integer status_code;
 }

@@ -13,6 +13,7 @@ import me.zhengjie.modules.doum.service.dto.AwemeDto;
 import org.apache.commons.lang3.tuple.Pair;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.AbstractQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -48,6 +49,10 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
         SortBuilder sortBuilder, Class clazz) {
         return super.listForPage(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()), doc, page,
             boolQueryBuilder, sortBuilder, clazz);
+    }
+
+    public void delete(QueryBuilder elasticsearchQuery) {
+        super.delete(index + "_" + DateUtil.formatDate(DateUtil.getCurrentDate()), doc, elasticsearchQuery);
     }
 
     public List<AwemeDto> listForPage(String from, AbstractQueryBuilder boolQueryBuilder, SortBuilder sortBuilder,
@@ -90,7 +95,7 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
     private Aggregations getAggregations(String[] index, String type, Integer n, AbstractQueryBuilder boolQueryBuilder,
         SortBuilder sortBuilder, String group, String order, SortOrder sortOrder) {
 
-        log.info("boolQueryBuilder = {} ", boolQueryBuilder);
+        log.info("getAggregations boolQueryBuilder = {} ", boolQueryBuilder);
 
         TermsAggregationBuilder termsAggregationBuilder = AggregationBuilders.terms(group + "Group")
             .field(group)
@@ -128,9 +133,8 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
         super.insert(index, doc, list);
     }
 
-    public static void main(String[] args) {
-        Pair<String, String> of = Pair.of("2022-03-19 01:03:52", "2022-03-20 01:03:52");
-        System.out.println(Arrays.toString(getIndex(of.getLeft())));
+    public void insert(AwemeDto dto, String index) {
+        super.insert(index, doc, dto);
     }
 
     /**

@@ -119,6 +119,13 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
                 }
                 return map;
             })
+            .filter(f -> {
+                if (StringUtils.isNotBlank(criteria.getRemark())) {
+                    return Safes.ofEmpty(f.getRemark(), "")
+                        .contains(criteria.getRemark());
+                }
+                return true;
+            })
             .collect(Collectors.toList()), responseList.getPage()
             .getTotalCount());
     }
@@ -218,7 +225,7 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
 
             List<AwemeDto> valueList = entry.getValue()
                 .parallelStream()
-                .filter(f -> f.getDigg_count() > 0)
+//                .filter(f -> f.getDigg_count() > 0)
                 .collect(Collectors.toList());
 
             if (valueList.size() <= 1) {
