@@ -30,6 +30,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Log4j2
+@CacheConfig(cacheNames = "usermonitor")
 public class UserMonitorServiceImpl implements UserMonitorService {
     @Autowired
     UserMonitorRepository userMonitorRepository;
@@ -91,6 +93,8 @@ public class UserMonitorServiceImpl implements UserMonitorService {
     public Object getUser1(UserMonitorQueryCriteria criteria) {
         String[] split = criteria.getHome_url()
             .split("\n");
+
+        Long currentUserId = SecurityUtils.getCurrentUserId();
         for (String i : split) {
 
             String home_url = i.substring(i.indexOf("https"));
@@ -121,6 +125,10 @@ public class UserMonitorServiceImpl implements UserMonitorService {
             if (Objects.nonNull(userInfoDto)) {
                 DataDto data = userInfoDto.getData();
 
+                if (Objects.isNull(data.getUid())) {
+                    log.info("当前sec_user_id = {} , data uid is null ", sec_user_id, JSON.toJSONString(data));
+                }
+
                 // 先查询一边有没有uid
                 BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
                 boolQueryBuilder.must(QueryBuilders.termQuery("uid", data.getUid()));
@@ -131,12 +139,12 @@ public class UserMonitorServiceImpl implements UserMonitorService {
                     Set<Long> user_id = userMonitorDtos.get(0)
                         .getUser_id();
                     if (null != user_id) {
-                        user_id.add(SecurityUtils.getCurrentUserId());
+                        user_id.add(currentUserId);
                         userMonitorDtos.get(0)
                             .setUser_id(user_id);
                         userMonitorRepository.insert(userMonitorDtos.get(0));
                     } else {
-                        HashSet<Long> longs = Sets.newHashSet(SecurityUtils.getCurrentUserId());
+                        HashSet<Long> longs = Sets.newHashSet(currentUserId);
                         userMonitorDtos.get(0)
                             .setUser_id(longs);
                         userMonitorRepository.insert(userMonitorDtos.get(0));
@@ -145,7 +153,7 @@ public class UserMonitorServiceImpl implements UserMonitorService {
                 } else {
                     userMonitorRepository.insert(UserMonitorDto.builder()
                         // TODO: 2022/3/1 当前登录用户
-                        .user_id(Sets.newHashSet(SecurityUtils.getCurrentUserId()))
+                        .user_id(Sets.newHashSet(currentUserId))
                         .home_url(home_url)
                         .sec_user_id(sec_user_id)
                         .nickname(data.getNickname())
@@ -178,7 +186,7 @@ public class UserMonitorServiceImpl implements UserMonitorService {
         }
         userRemarkRepository.insert(UserRemarkDto.builder()
             .uid(criteria.getUid())
-            .user_id(SecurityUtils.getCurrentUserId())
+            .user_id(currentUserId)
             .remark(criteria.getRemark())
             .build());
     }
@@ -274,21 +282,11 @@ public class UserMonitorServiceImpl implements UserMonitorService {
         return Boolean.TRUE;
     }
 
-    public static void main(String[] args) {
-        HashSet<Integer> integers = Sets.newHashSet(1);
-        boolean contains = integers.contains(1);
-        boolean contains1 = integers.contains(4);
-        boolean remove = integers.remove(1);
-        System.out.println(remove);
-        System.out.println(integers.size());
-    }
-
     public BoolQueryBuilder queryBuilder(UserMonitorQueryCriteria criteria) {
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
         Long currentUserId = SecurityUtils.getCurrentUserId();
         if (currentUserId != 1) {
-            boolQueryBuilder.must(
-                QueryBuilders.termsQuery("user_id", Sets.newHashSet(SecurityUtils.getCurrentUserId())));
+            boolQueryBuilder.must(QueryBuilders.termsQuery("user_id", Sets.newHashSet(currentUserId)));
         }
 
         if (StringUtils.isNoneBlank(criteria.getNickname())) {

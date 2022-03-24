@@ -34,6 +34,7 @@ import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
  * @date 2022/2/22
  */
 @Service
+@CacheConfig(cacheNames = "awemelike")
 @RequiredArgsConstructor
 @Log4j2
 public class AwemeLikeServiceImpl implements AwemeLikeService {
@@ -225,7 +227,7 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
 
             List<AwemeDto> valueList = entry.getValue()
                 .parallelStream()
-//                .filter(f -> f.getDigg_count() > 0)
+                //                .filter(f -> f.getDigg_count() > 0)
                 .collect(Collectors.toList());
 
             if (valueList.size() <= 1) {

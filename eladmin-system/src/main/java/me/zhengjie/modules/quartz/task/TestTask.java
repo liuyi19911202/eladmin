@@ -23,6 +23,7 @@ import com.cdos.utils.json.JacksonProvider;
 import com.cdos.web.htppclient.CdosHttpRestTemplate;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import me.zhengjie.modules.doum.enums.DateBetweenEnum;
 import me.zhengjie.modules.doum.repository.AwemeRepository;
@@ -322,6 +323,42 @@ public class TestTask {
         System.out.println("多线程方法，耗时：" + (end - start) + "ms");
     }
 
+    /**
+     * 先请求html，再请求app
+     */
+    @SneakyThrows
+    public void requestHtmlApp(String theeadSize) {
+        AtomicInteger atomicLoop = new AtomicInteger(0);
+        AtomicInteger bak_atomicLoop = new AtomicInteger(0);
+
+        String html_url = "http://127.0.0.1:9822/api/aweme/userVideoList";
+
+        List<UserMonitorDto> userMonitorDtos =
+            userMonitorRepository.listForPage(null, null, 999999999, UserMonitorDto.class);
+        log.info("多线程数量：{}，当前size：{}", theeadSize, userMonitorDtos.size());
+
+        long start = System.currentTimeMillis();
+        ExecutorService executor = ThreadUtil.newExecutor(Integer.parseInt(theeadSize));
+        final CountDownLatch countDownLatch = new CountDownLatch(userMonitorDtos.size());
+
+        for (UserMonitorDto user : userMonitorDtos) {
+            executor.execute(new TaskRequestHtmlApp(user, countDownLatch, html_url, atomicLoop, bak_atomicLoop));
+        }
+
+        try {
+            countDownLatch.await();
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        } finally {
+            executor.shutdown();
+        }
+        long end = System.currentTimeMillis();
+
+        System.out.println("多线程方法，耗时：" + (end - start) + "ms");
+
+        saveAwemeResult();
+    }
+
     // TODO: 2022/3/21 只筛选挂车的视频
     public void moreThreadBatchAwemeDetail(String url, AtomicInteger atomicLoop, AtomicInteger bak_atomicLoop,
         Integer theeadSize) {
@@ -483,6 +520,112 @@ public class TestTask {
         awemeRepository.insert(awemeDtoBuilder.build(), index);
         int incrementAndGet_bak = bak_atomicLoop.incrementAndGet();
         log.info("处理返回结果:{}", incrementAndGet_bak);
+    }
+
+    /**
+     * 先请求html，再请求app
+     */
+    @SuppressWarnings("all")
+    public void sendRequestHtmlApp(UserMonitorDto user, AtomicInteger atomicLoop, AtomicInteger bak_atomicLoop) {
+
+        String result = "";
+
+        int incrementAndGet = atomicLoop.incrementAndGet();
+        log.info("当前执行到第{}个用户，uid：{}，sec_user_id：{}", incrementAndGet, user.getUid(), user.getSec_user_id());
+        try {
+            Map<String, String> params = Maps.newHashMapWithExpectedSize(3);
+            params.put("sec_uid", user.getSec_user_id());
+            params.put("max_cursor", "0");
+            params.put("count", "20");
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+            headers.setAccept(Lists.newArrayList(MediaType.APPLICATION_JSON_UTF8));
+            headers.set("token", "test");
+            String jsonParam = JacksonProvider.getObjectMapper()
+                .writeValueAsString(Objects.nonNull(params) ? params : "");
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(jsonParam, headers);
+
+            // 先请求html
+            result = awemeHttpRestTemplate.getDelegate()
+                .postForObject("http://127.0.0.1:9822/api/aweme/userVideoList", requestEntity, String.class);
+
+        } catch (Exception e) {
+            log.error("异常{}个用户，uid：{}，sec_user_id：{}{}", incrementAndGet, user.getUid(), user.getSec_user_id(), e);
+        }
+        // 处理返回
+        AwemeDto awemeDto = JSON.parseObject(result, AwemeDto.class);
+
+        if (null == awemeDto) {
+            return;
+        }
+
+        List<me.zhengjie.modules.doum.service.dto.AwemeDto> AwemeDtoList = Safes.of(awemeDto.getData())
+            .parallelStream()
+            .flatMap(map -> {
+
+                List<me.zhengjie.modules.doum.service.dto.AwemeDto> collect = Safes.of(map.getAweme_list())
+                    .parallelStream()
+                    .map(map1 -> {
+
+                        me.zhengjie.modules.doum.service.dto.AwemeDto.AwemeDtoBuilder awemeDtoBuilder =
+                            me.zhengjie.modules.doum.service.dto.AwemeDto.builder()
+                                .aweme_id(map1.getAweme_id())
+                                .desc(map1.getDesc())
+                                .digg_count(map1.getStatistics()
+                                    .getDigg_count())
+                                .collect_count(map1.getStatistics()
+                                    .getCollect_count())
+                                .comment_count(map1.getStatistics()
+                                    .getComment_count())
+                                .share_count(map1.getStatistics()
+                                    .getShare_count())
+                                .share_url(map1.getShare_url())
+                                .create_time(TimestampToDate(map1.getCreate_time()))
+                                .update_time(DateUtil.getCurrentDateTime())
+                                .author_user_id(map1.getAuthor_user_id())
+                                .nickname(map1.getAuthor()
+                                    .getNickname())
+                                .unique_id(map1.getAuthor()
+                                    .getUnique_id())
+                                .is_delete(map1.getStatus()
+                                    .getIs_delete());
+
+                        // 商品信息
+                        if (null != map1.getStatus() && null != map1.getStatus()
+                            .getWith_goods() && map1.getStatus()
+                            .getWith_goods()) {
+
+                            try {
+                                awemeDtoBuilder.with_goods(map1.getStatus()
+                                    .getWith_goods())
+                                    .product_url_list(map1.getAnchor_info()
+                                        .getIcon()
+                                        .getUrl_list());
+                                List<AwemeExtraDto> awemeExtraDtos = JSON.parseArray(map1.getAnchor_info()
+                                    .getExtra(), AwemeExtraDto.class);
+
+                                awemeDtoBuilder.extra(awemeExtraDtos);
+                            } catch (Exception e) {
+                                log.error("没有爬取到挂车内容：{},{}", map1.getAweme_id(), JSON.toJSONString(map1));
+                            }
+
+                        }
+                        return awemeDtoBuilder.build();
+                    })
+                    .collect(Collectors.toList());
+
+                return collect.stream();
+            })
+            .collect(Collectors.toList());
+
+        if (AwemeDtoList.size() > 0) {
+            String index = "dm_aweme" + "_" + DateUtil.formatDate(DateUtil.getCurrentDate());
+            awemeRepository.insert(AwemeDtoList, index);
+            int incrementAndGet_bak = bak_atomicLoop.incrementAndGet();
+            log.info("处理返回结果:{}", incrementAndGet_bak);
+        }
     }
 
     @SuppressWarnings("all")
@@ -804,6 +947,39 @@ public class TestTask {
         public void run() {
             try {
                 videoDetail(aweme_id, url, atomicLoop, bak_atomicLoop);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                countDownLatch.countDown();
+            }
+        }
+    }
+
+    /**
+     * 先请求html，再请求app
+     */
+    class TaskRequestHtmlApp implements Runnable {
+
+        private UserMonitorDto user;
+        private CountDownLatch countDownLatch;
+        private String url;
+        private AtomicInteger atomicLoop;
+        private AtomicInteger bak_atomicLoop;
+
+        public TaskRequestHtmlApp(UserMonitorDto user, CountDownLatch countDownLatch, String url,
+            AtomicInteger atomicLoop, AtomicInteger bak_atomicLoop) {
+            this.user = user;
+            this.countDownLatch = countDownLatch;
+            this.url = url;
+            this.atomicLoop = atomicLoop;
+            this.bak_atomicLoop = bak_atomicLoop;
+        }
+
+        @Override
+        public void run() {
+            try {
+                sendRequest(user, url, atomicLoop, bak_atomicLoop);
+                //                sendRequestOnlyUpdateGoods(user, url, atomicLoop, bak_atomicLoop, type);
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {

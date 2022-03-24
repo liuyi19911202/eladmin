@@ -13,7 +13,9 @@ import me.zhengjie.modules.doum.service.dto.AwemeDto;
 import org.apache.commons.lang3.tuple.Pair;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.AbstractQueryBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -60,8 +62,7 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
         return super.listForPage(getIndexForDetail(from), doc, boolQueryBuilder, sortBuilder, n, clazz);
     }
 
-    public List<AwemeDto> aggrList(String from, AbstractQueryBuilder boolQueryBuilder, Integer size,
-        SortOrder sortOrder) {
+    public List<AwemeDto> aggrList(String from, BoolQueryBuilder boolQueryBuilder, Integer size, SortOrder sortOrder) {
         FieldSortBuilder update_time = new FieldSortBuilder("update_time").order(sortOrder);
 
         Aggregations aggregations =
@@ -92,10 +93,13 @@ public class AwemeRepository extends BaseElasticSearchRepository<AwemeDto> {
         return update_timeTop;
     }
 
-    private Aggregations getAggregations(String[] index, String type, Integer n, AbstractQueryBuilder boolQueryBuilder,
+    private Aggregations getAggregations(String[] index, String type, Integer n, BoolQueryBuilder boolQueryBuilder,
         SortBuilder sortBuilder, String group, String order, SortOrder sortOrder) {
 
         log.info("getAggregations boolQueryBuilder = {} ", boolQueryBuilder);
+
+        // TODO: 2022/3/23 过滤掉为digg 0的
+        boolQueryBuilder.mustNot(QueryBuilders.termQuery("digg_count", 0));
 
         TermsAggregationBuilder termsAggregationBuilder = AggregationBuilders.terms(group + "Group")
             .field(group)
