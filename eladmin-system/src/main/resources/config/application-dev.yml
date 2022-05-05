@@ -38,6 +38,7 @@ spring:
         enabled: true
         url-pattern: /druid/*
         reset-enable: false
+        allow: localhost
       filter:
         stat:
           enabled: true

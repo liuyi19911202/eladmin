@@ -1,5 +1,6 @@
 package me.zhengjie.modules.doum.service.impl;
 
+import cn.hutool.core.collection.CollectionUtil;
 import com.alibaba.fastjson.JSON;
 import com.alipay.api.domain.Person;
 import com.cdos.api.bean.PageInfo;
@@ -7,10 +8,12 @@ import com.cdos.api.bean.cdosapi.CdosApiPageResponse;
 import com.cdos.utils.DateUtil;
 import com.cdos.utils.Safes;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import me.zhengjie.modules.doum.enums.DateBetweenEnum;
 import me.zhengjie.modules.doum.repository.*;
+import me.zhengjie.modules.doum.repository.dto.whitelist.AwemeWhitelistDto;
 import me.zhengjie.modules.doum.service.AwemeLikeService;
 import me.zhengjie.modules.doum.service.UserMonitorService;
 import me.zhengjie.modules.doum.service.dto.*;
@@ -73,6 +76,10 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
     UserRemarkRepository userRemarkRepository;
     @Autowired
     UserMonitorServiceImpl userMonitorServiceImpl;
+    @Autowired
+    AwemeWhitelistRepository awemeWhitelistRepository;
+    @Autowired
+    UserMonitorRepository userMonitorRepository;
 
     @Override
     public Object list(AwemeLikeQueryCriteria criteria, Pageable pageable) {
@@ -398,15 +405,50 @@ public class AwemeLikeServiceImpl implements AwemeLikeService {
         return boolQueryBuilder;
     }
 
+    private List<Long> getAuthorUserId() {
+        // 查一下白名单
+        List<AwemeWhitelistDto> awemeWhitelistDtos =
+            awemeWhitelistRepository.listForPage(null, null, 100000, AwemeWhitelistDto.class);
+        List<Long> collect = Safes.of(awemeWhitelistDtos)
+            .stream()
+            .map(AwemeWhitelistDto::getUid)
+            .collect(Collectors.toList());
+
+        List<Long> collect1 = Lists.newArrayList();
+        if (CollectionUtil.isNotEmpty(collect)) {
+            BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
+            // 获取当前用户下绑定的所有用户
+            boolQueryBuilder.must(QueryBuilders.termsQuery("user_id", collect));
+
+            // TODO: 2022/3/13 最多1000个用户
+            List<UserMonitorDto> userMonitorDtos =
+                userMonitorRepository.listForPage(boolQueryBuilder, null, 1000, UserMonitorDto.class);
+
+            collect1 = Safes.of(userMonitorDtos)
+                .parallelStream()
+                .map(UserMonitorDto::getUid)
+                .collect(Collectors.toList());
+
+            log.info("queryBuilder awemeWhitelist collect = {} ,collect1 = {} ", collect.size(), collect1.size());
+        }
+        return collect1;
+    }
+
     public BoolQueryBuilder queryBuilder(AwemeLikeQueryCriteria criteria) {
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-
-        if (SecurityUtils.getCurrentUserId() != 1) {
+        Long currentUserId = SecurityUtils.getCurrentUserId();
+        if (currentUserId != 1) {
             boolQueryBuilder.must(QueryBuilders.termsQuery("author_user_id", userMonitorService.getAuthorUserId()));
+        } else {
+            boolQueryBuilder.mustNot(QueryBuilders.termsQuery("author_user_id", getAuthorUserId()));
         }
 
         if (StringUtils.isNoneBlank(criteria.getNickname())) {
             boolQueryBuilder.must(QueryBuilders.termQuery("nickname", criteria.getNickname()));
+        }
+
+        if (StringUtils.isNoneBlank(criteria.getDesc())) {
+            boolQueryBuilder.must(QueryBuilders.wildcardQuery("desc", "*" + criteria.getDesc() + "*"));
         }
 
         if (Objects.nonNull(criteria.getWith_goods())) {

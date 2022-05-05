@@ -76,6 +76,13 @@ public class UserMonitorServiceImpl implements UserMonitorService {
                 map.setId(map.getUid());
                 return map;
             })
+            .filter(f -> {
+                if (StringUtils.isNotBlank(criteria.getRemark())) {
+                    return Safes.ofEmpty(f.getRemark(), "")
+                        .contains(criteria.getRemark());
+                }
+                return true;
+            })
             .collect(Collectors.toList());
 
         return PageUtil.toPage(collect, awemeDtoCdosApiPageResponse.getPage()
@@ -105,6 +112,30 @@ public class UserMonitorServiceImpl implements UserMonitorService {
             // 用户的sec_user_id信息
             String sec_user_id = substring.substring(5);
 
+            // 判断存在就不添加了
+            BoolQueryBuilder boolQueryBuilder1 = QueryBuilders.boolQuery();
+            boolQueryBuilder1.must(QueryBuilders.termQuery("sec_user_id", sec_user_id));
+            List<UserMonitorDto> userMonitorDtos1 =
+                userMonitorRepository.listForPage(boolQueryBuilder1, null, 1, UserMonitorDto.class);
+            if (null != userMonitorDtos1 && userMonitorDtos1.size() >= 1) {
+                log.info("sec_user_id = {}  已存在,直接更新用户", sec_user_id);
+                // 说明已有此用户，更新即可
+                Set<Long> user_id = userMonitorDtos1.get(0)
+                    .getUser_id();
+                if (null != user_id) {
+                    user_id.add(currentUserId);
+                    userMonitorDtos1.get(0)
+                        .setUser_id(user_id);
+                    userMonitorRepository.insert(userMonitorDtos1.get(0));
+                } else {
+                    HashSet<Long> longs = Sets.newHashSet(currentUserId);
+                    userMonitorDtos1.get(0)
+                        .setUser_id(longs);
+                    userMonitorRepository.insert(userMonitorDtos1.get(0));
+                }
+                return null;
+            }
+
             Map<String, String> params = Maps.newHashMapWithExpectedSize(3);
             params.put("sec_uid", sec_user_id);
 
@@ -125,9 +156,7 @@ public class UserMonitorServiceImpl implements UserMonitorService {
             if (Objects.nonNull(userInfoDto)) {
                 DataDto data = userInfoDto.getData();
 
-                if (Objects.isNull(data.getUid())) {
-                    log.info("当前sec_user_id = {} , data uid is null ", sec_user_id, JSON.toJSONString(data));
-                }
+                log.info("当前sec_user_id = {} , data = {} ", sec_user_id, JSON.toJSONString(data));
 
                 // 先查询一边有没有uid
                 BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
@@ -290,7 +319,7 @@ public class UserMonitorServiceImpl implements UserMonitorService {
         }
 
         if (StringUtils.isNoneBlank(criteria.getNickname())) {
-            boolQueryBuilder.must(QueryBuilders.termQuery("nickname", criteria.getNickname()));
+            boolQueryBuilder.must(QueryBuilders.wildcardQuery("nickname", "*" + criteria.getNickname() + "*"));
         }
 
         if (null != criteria.getUid()) {

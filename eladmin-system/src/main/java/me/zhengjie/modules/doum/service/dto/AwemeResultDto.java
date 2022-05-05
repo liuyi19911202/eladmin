@@ -39,6 +39,7 @@ public class AwemeResultDto {
      * 抖音号
      */
     private String unique_id;
+    private Long uid;
     /**
      * 视频是否删除
      */

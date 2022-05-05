@@ -119,7 +119,7 @@ public class AwemeServiceImpl implements AwemeService {
             .gte(date.getLeft())
             .lte(date.getRight()));
 
-        boolQueryBuilder.must(QueryBuilders.termQuery("unique_id", criteria.getUnique_id()));
+        boolQueryBuilder.must(QueryBuilders.termQuery("uid", criteria.getUid()));
 
         if (SecurityUtils.getCurrentUserId() != 1) {
             boolQueryBuilder.must(QueryBuilders.termsQuery("author_user_id", userMonitorService.getAuthorUserId()));

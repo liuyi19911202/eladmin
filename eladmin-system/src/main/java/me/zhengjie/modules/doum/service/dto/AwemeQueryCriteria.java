@@ -29,4 +29,5 @@ public class AwemeQueryCriteria implements Serializable {
 
     private String nickname;
     private String unique_id;
+    private Long uid;
 }
